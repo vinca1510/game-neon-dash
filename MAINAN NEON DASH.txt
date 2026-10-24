@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON DASH - Game Lari</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #080b18;
+  color: white;
+  font-family: Arial, sans-serif;
+  padding: 15px;
+}
+
+.game {
+  width: 100%;
+  max-width: 700px;
+  text-align: center;
+}
+
+h1 {
+  color: #00f5ff;
+  font-size: clamp(28px, 7vw, 45px);
+  margin-bottom: 5px;
+  letter-spacing: 4px;
+  text-shadow: 0 0 15px #00f5ff;
+}
+
+p {
+  color: #b9c5e8;
+  font-size: 14px;
+}
+
+.info {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 15px 0;
+  color: #00f5ff;
+  font-weight: bold;
+}
+
+canvas {
+  width: 100%;
+  display: block;
+  background: #111831;
+  border: 2px solid #00f5ff;
+  border-radius: 12px;
+  box-shadow: 0 0 20px #00f5ff44;
+  touch-action: manipulation;
+}
+
+button {
+  margin-top: 15px;
+  padding: 14px 25px;
+  border: none;
+  border-radius: 10px;
+  background: #00f5ff;
+  color: #08101c;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+.note {
+  font-size: 12px;
+  color: #9aa8cc;
+  margin-top: 12px;
+}
+</style>
+</head>
+
+<body>
+<div class="game">
+  <h1>NEON DASH</h1>
+  <p>Lari sejauh mungkin dan hindari semua rintangan!</p>
+
+  <div class="info">
+    <span>SKOR: <span id="score">0</span></span>
+    <span>TERBAIK: <span id="best">0</span></span>
+  </div>
+
+  <canvas id="gameCanvas" width="700" height="300"></canvas>
+
+  <button id="jumpButton">⬆️ LOMPAT</button>
+  <button id="restartButton">↻ ULANGI</button>
+
+  <p class="note">
+    Laptop: tekan SPASI atau tombol panah atas.<br>
+    HP: sentuh layar permainan atau tombol LOMPAT.
+  </p>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const scoreText = document.getElementById("score");
+const bestText = document.getElementById("best");
+
+const ground = 250;
+
+let player;
+let obstacles;
+let score;
+let speed;
+let frame;
+let gameOver;
+let started;
+
+let best = Number(localStorage.getItem("neonDashBest")) || 0;
+bestText.textContent = best;
+
+function resetGame() {
+  player = {
+    x: 75,
+    y: ground - 42,
+    width: 32,
+    height: 42,
+    velocityY: 0,
+    jumping: false
+  };
+
+  obstacles = [];
+  score = 0;
+  speed = 5;
+  frame = 0;
+  gameOver = false;
+  started = true;
+
+  scoreText.textContent = score;
+}
+
+function jump() {
+  if (gameOver) {
+    resetGame();
+    return;
+  }
+
+  if (!started) {
+    resetGame();
+  }
+
+  if (!player.jumping) {
+    player.velocityY = -12;
+    player.jumping = true;
+  }
+}
+
+function drawPlayer() {
+  ctx.fillStyle = "#00f5ff";
+  ctx.shadowColor = "#00f5ff";
+  ctx.shadowBlur = 15;
+
+  ctx.fillRect(
+    player.x,
+    player.y,
+    player.width,
+    player.height
+  );
+
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = "#08101c";
+  ctx.fillRect(player.x + 19, player.y + 9, 6, 6);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(player.x + 21, player.y + 11, 2, 2);
+}
+
+function drawObstacle(obstacle) {
+  ctx.fillStyle = "#ff3864";
+  ctx.shadowColor = "#ff3864";
+  ctx.shadowBlur = 12;
+
+  ctx.fillRect(
+    obstacle.x,
+    obstacle.y,
+    obstacle.width,
+    obstacle.height
+  );
+
+  ctx.shadowBlur = 0;
+}
+
+function drawBackground() {
+  ctx.fillStyle = "#111831";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = "#243252";
+  ctx.lineWidth = 1;
+
+  for (let x = 0; x < canvas.width; x += 35) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, ground);
+    ctx.stroke();
+  }
+
+  for (let y = 10; y < ground; y += 35) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "#00f5ff";
+  ctx.fillRect(0, ground, canvas.width, 3);
+}
+
+function endGame() {
+  gameOver = true;
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem("neonDashBest", best);
+    bestText.textContent = best;
+  }
+}
+
+function update() {
+  if (!started || gameOver) return;
+
+  frame++;
+
+  player.velocityY += 0.6;
+  player.y += player.velocityY;
+
+  if (player.y + player.height >= ground) {
+    player.y = ground - player.height;
+    player.velocityY = 0;
+    player.jumping = false;
+  }
+
+  if (frame % 85 === 0) {
+    const height = 25 + Math.random() * 25;
+
+    obstacles.push({
+      x: canvas.width,
+      y: ground - height,
+      width: 20 + Math.random() * 12,
+      height: height
+    });
+  }
+
+  speed = 5 + score / 100;
+
+  obstacles.forEach(obstacle => {
+    obstacle.x -= speed;
+
+    const hit =
+      player.x < obstacle.x + obstacle.width &&
+      player.x + player.width > obstacle.x &&
+      player.y < obstacle.y + obstacle.height &&
+      player.y + player.height > obstacle.y;
+
+    if (hit) {
+      endGame();
+    }
+  });
+
+  obstacles = obstacles.filter(
+    obstacle => obstacle.x + obstacle.width > 0
+  );
+
+  if (frame % 6 === 0) {
+    score++;
+    scoreText.textContent = score;
+  }
+}
+
+function draw() {
+  drawBackground();
+
+  if (player) {
+    drawPlayer();
+  }
+
+  obstacles.forEach(drawObstacle);
+
+  if (!started) {
+    drawMessage("NEON DASH", "Sentuh layar untuk mulai");
+  }
+
+  if (gameOver) {
+    drawMessage("GAME OVER", "Sentuh layar atau tekan ULANGI");
+  }
+}
+
+function drawMessage(title, subtitle) {
+  ctx.fillStyle = "#080b18dd";
+  ctx.fillRect(100, 85, 500, 90);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#00f5ff";
+  ctx.font = "bold 30px Arial";
+  ctx.fillText(title, canvas.width / 2, 122);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "14px Arial";
+  ctx.fillText(subtitle, canvas.width / 2, 150);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+canvas.addEventListener("pointerdown", jump);
+
+document.getElementById("jumpButton").addEventListener("click", jump);
+
+document.getElementById("restartButton").addEventListener("click", () => {
+  resetGame();
+});
+
+document.addEventListener("keydown", event => {
+  if (
+    event.code === "Space" ||
+    event.code === "ArrowUp" ||
+    event.code === "KeyW"
+  ) {
+    event.preventDefault();
+    jump();
+  }
+});
+
+resetGame();
+loop();
+</script>
+</body>
+</html>
